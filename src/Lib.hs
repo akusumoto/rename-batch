@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable, LambdaCase #-}
 module Lib where
 
 import System.IO
@@ -8,6 +8,7 @@ import Data.Data
 import Data.Typeable
 import System.Console.CmdArgs
 import System.Directory
+import System.FilePath
 import Control.Monad
 
 data Language = English | Japanese deriving (Show, Data, Typeable, Eq)
@@ -77,8 +78,12 @@ createRenameList' Nothing _ _ _ _ = []
 createRenameList' (Just file) title chapter episode language = [rename_rule]
     where
         ext = last $ splitOn "." file 
+        dir = takeDirectory file
+        dir_sep = if length dir > 0 && dir /= "."
+                    then dir ++ [pathSeparator]
+                    else ""
         newfile = createNewFileName title chapter episode ext language 
-        rename_rule = RenameRule {old_file = file, new_file = newfile}
+        rename_rule = RenameRule {old_file = file, new_file = dir_sep ++ newfile}
 
 createRenameList _ _ [] _ = []
 createRenameList files title (ep:eps) lang = result ++ next
@@ -126,8 +131,19 @@ rename (l:ls) = do
     putStrLn "OK"
     rename ls
 
-run opts = do
-    list <- prepareRenameList (titlefile opts) (language opts) (files opts)
+isMovieFile file 
+        True -> do files <- filter (\f -> doesFileExist (f_or_d ++ [pathSeparator] ++ f) >>= True -> f /= titlefile False -> False) listDirectory f_or_d
+
+runFromDirectory titlefile language (f_or_d:files_or_dirs) = do
+    doesDirectoryExist f_or_d >>= \case
+        True -> do files <- filter (\f -> doesFileExist (f_or_d ++ [pathSeparator] ++ f) >>= True -> f /= titlefile False -> False) listDirectory f_or_d
+                   runFromFiles (f_or_d ++ [pathSeparator] ++ titlefile) language files
+                   runFromDirectory titlefile language files_or_dirs
+        False -> [f_or_d] ++ runFromDirectory titlefile language files_or_dirs
+    
+
+runFromFiles titlefile language files = do
+    list <- prepareRenameList titlefile language files
     if length list > 0
         then do putStr "Do you rename? [Y/n] " >> hFlush stdout
                 ans <- getLine
@@ -135,4 +151,19 @@ run opts = do
                     then do rename list
                     else do putStrLn "Aborted"
         else do return ()
+
+run opts = do
+    let file_list = runFromDirectory (titlefile opts) (language opts) (files opts)
+    runFromFiles (titlefile opts) (language opts) file_list
     
+    --list <- prepareRenameList (titlefile opts) (language opts) (files opts)
+    {-
+    list <- prepareRenameList (titlefile opts) (language opts) file_list
+    if length list > 0
+        then do putStr "Do you rename? [Y/n] " >> hFlush stdout
+                ans <- getLine
+                if ans == "" || ans == "y" || ans == "Y"
+                    then do rename list
+                    else do putStrLn "Aborted"
+        else do return ()
+    -} 
