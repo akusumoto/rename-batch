@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 096a84f40749e56f54df2329d71e1000f6228d3378bc4e2357c6fe3750b3ce30
+-- hash: 3f2fd7a8830157f9eda318a6b3ef3f1aa1156093a32cc18524f9ad20ebb8d126
 
 name:           rename-batch
 version:        0.1.0.0
@@ -35,6 +35,7 @@ library
   build-depends:
       base >=4.7 && <5
     , cmdargs >=0.10.20
+    , directory >=1.3.6.0
     , split >=0.2.3.4
   default-language: Haskell2010
 
@@ -48,6 +49,7 @@ executable rename-batch-exe
   build-depends:
       base >=4.7 && <5
     , cmdargs >=0.10.20
+    , directory >=1.3.6.0
     , rename-batch
     , split >=0.2.3.4
   default-language: Haskell2010
@@ -63,6 +65,7 @@ test-suite rename-batch-test
   build-depends:
       base >=4.7 && <5
     , cmdargs >=0.10.20
+    , directory >=1.3.6.0
     , rename-batch
     , split >=0.2.3.4
   default-language: Haskell2010

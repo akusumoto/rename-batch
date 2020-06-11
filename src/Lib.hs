@@ -7,6 +7,8 @@ import Data.List.Split
 import Data.Data
 import Data.Typeable
 import System.Console.CmdArgs
+import System.Directory
+import Control.Monad
 
 data Language = English | Japanese deriving (Show, Data, Typeable, Eq)
 data Option = Option {
@@ -14,6 +16,15 @@ data Option = Option {
     language :: Language,
     files :: [FilePath]
 } deriving (Show, Data, Typeable)
+
+data Episode = Episode {
+    chapter :: String,
+    episode :: String }
+
+data RenameRule = RenameRule {
+    old_file :: FilePath,
+    new_file :: FilePath
+}
 
 option = Option {
         titlefile = "a.txt" &= help "Title list file (default: a.txt)",
@@ -47,7 +58,7 @@ prepareEpisodeList' (l:ls) = [item] ++ list
         ws = words l
         chapter = head ws
         episode = unwords $ tail ws
-        item = (chapter, episode)
+        item = Episode {chapter = chapter, episode = episode}
         list = prepareEpisodeList' ls
 
 prepareEpisodeList contents = prepareEpisodeList' $ lines contents
@@ -63,22 +74,25 @@ createNewFileName title chapter episode ext Japanese = title ++ " 第" ++ chapte
 createNewFileName title chapter episode ext English  = title ++ " - " ++ chapter ++ " " ++ episode ++ "." ++ ext
 
 createRenameList' Nothing _ _ _ _ = []
-createRenameList' (Just file) title chapter episode language = [(file, newfile)]
+createRenameList' (Just file) title chapter episode language = [rename_rule]
     where
         ext = last $ splitOn "." file 
         newfile = createNewFileName title chapter episode ext language 
+        rename_rule = RenameRule {old_file = file, new_file = newfile}
 
 createRenameList _ _ [] _ = []
-createRenameList files title (episode:episodes) language = result ++ next
+createRenameList files title (ep:eps) lang = result ++ next
     where
-        chapter = fst episode
-        target_file = findTargetFile files chapter
-        result = createRenameList' target_file title chapter (snd episode) language
-        next = createRenameList files title episodes language
+        ch = chapter ep
+        target_file = findTargetFile files ch
+        result = createRenameList' target_file title ch (episode ep) lang
+        next = createRenameList files title eps lang
 
 showRenameList [] = return ()
 showRenameList (l:ls) = do
-    putStrLn $ (fst l) ++ " --> " ++ (snd l)
+    let old = old_file l
+    let new = new_file l
+    putStrLn $ old ++ " --> " ++ new
     showRenameList ls
 
 prepareRenameList file language files = do
@@ -103,19 +117,22 @@ prepareRenameList file language files = do
 {-
  - Run rename
  -}
-rename list = return ()
-
-runRename :: String -> [(String, String)] -> IO ()
-runRename answer list 
-    | answer == "" || answer == "y" || answer == "Y" = rename list
-    | otherwise = putStrLn "Aborted"
+rename [] = return ()
+rename (l:ls) = do
+    let old = old_file l
+    let new = new_file l
+    putStr $ old ++ " --> " ++ new ++ " ... "
+    renameFile old new
+    putStrLn "OK"
+    rename ls
 
 run opts = do
     list <- prepareRenameList (titlefile opts) (language opts) (files opts)
+    if length list > 0
+        then do putStr "Do you rename? [Y/n] " >> hFlush stdout
+                ans <- getLine
+                if ans == "" || ans == "y" || ans == "Y"
+                    then do rename list
+                    else do putStrLn "Aborted"
+        else do return ()
     
-    putStr "Do you rename? [Y/n] " >> hFlush stdout
-    ans <- getLine
-
-    runRename ans list
-
-    return ()
