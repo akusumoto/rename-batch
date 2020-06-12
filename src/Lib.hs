@@ -131,16 +131,22 @@ rename (l:ls) = do
     putStrLn "OK"
     rename ls
 
+{-
 isMovieFile file 
         True -> do files <- filter (\f -> doesFileExist (f_or_d ++ [pathSeparator] ++ f) >>= True -> f /= titlefile False -> False) listDirectory f_or_d
+-}
 
+runFromDirectory _ _ [] = return []
 runFromDirectory titlefile language (f_or_d:files_or_dirs) = do
-    doesDirectoryExist f_or_d >>= \case
-        True -> do files <- filter (\f -> doesFileExist (f_or_d ++ [pathSeparator] ++ f) >>= True -> f /= titlefile False -> False) listDirectory f_or_d
-                   runFromFiles (f_or_d ++ [pathSeparator] ++ titlefile) language files
-                   runFromDirectory titlefile language files_or_dirs
-        False -> [f_or_d] ++ runFromDirectory titlefile language files_or_dirs
-    
+    is_dir <- doesDirectoryExist f_or_d
+    if is_dir 
+        --then do files <- filter (\f -> doesFileExist (f_or_d ++ [pathSeparator] ++ f) >>= True -> f /= titlefile False -> False) listDirectory f_or_d
+        then do files <- listDirectory f_or_d
+                runFromFiles (f_or_d ++ [pathSeparator] ++ titlefile) language files
+                list <- runFromDirectory titlefile language files_or_dirs
+                return list
+        else do list <- runFromDirectory titlefile language files_or_dirs
+                return $ [f_or_d] ++ list
 
 runFromFiles titlefile language files = do
     list <- prepareRenameList titlefile language files
@@ -153,7 +159,7 @@ runFromFiles titlefile language files = do
         else do return ()
 
 run opts = do
-    let file_list = runFromDirectory (titlefile opts) (language opts) (files opts)
+    file_list <- runFromDirectory (titlefile opts) (language opts) (files opts)
     runFromFiles (titlefile opts) (language opts) file_list
     
     --list <- prepareRenameList (titlefile opts) (language opts) (files opts)
