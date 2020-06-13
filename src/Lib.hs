@@ -64,12 +64,14 @@ prepareEpisodeList' (l:ls) = [item] ++ list
 
 prepareEpisodeList contents = prepareEpisodeList' $ lines contents
 
-findTargetFile [] _ = Nothing
-findTargetFile (file:files) chapter
-    | is_target == True = Just file
-    | otherwise         = findTargetFile files chapter
+findTargetFile' files [] _ = (Nothing, files)
+findTargetFile' non_targets (file:files) chapter
+    | is_target == True = (Just file, non_targets ++ files)
+    | otherwise         = findTargetFile' (non_targets ++ [file]) files chapter
     where
-        is_target = isInfixOf chapter file 
+        is_target = isInfixOf chapter file
+
+findTargetFile files chapter = findTargetFile' [] files chapter
 
 createNewFileName title chapter episode ext Japanese = title ++ " 第" ++ chapter ++ "話 「" ++ episode ++ "」." ++ ext
 createNewFileName title chapter episode ext English  = title ++ " - " ++ chapter ++ " " ++ episode ++ "." ++ ext
@@ -89,9 +91,9 @@ createRenameList _ _ [] _ = []
 createRenameList files title (ep:eps) lang = result ++ next
     where
         ch = chapter ep
-        target_file = findTargetFile files ch
+        (target_file, remain_files) = findTargetFile files ch
         result = createRenameList' target_file title ch (episode ep) lang
-        next = createRenameList files title eps lang
+        next = createRenameList remain_files title eps lang
 
 showRenameList [] = return ()
 showRenameList (l:ls) = do
@@ -104,6 +106,7 @@ prepareRenameList file language files = do
     let sorted_files = sort files
 
     fh <- openFile file ReadMode 
+    hSetEncoding fh utf8
     title <- hGetLine fh
     contents <- hGetContents fh
 
@@ -142,12 +145,13 @@ runFromDirectory titlefile language (f_or_d:files_or_dirs) = do
     if is_dir 
         --then do files <- filter (\f -> doesFileExist (f_or_d ++ [pathSeparator] ++ f) >>= True -> f /= titlefile False -> False) listDirectory f_or_d
         then do files <- listDirectory f_or_d
-                runFromFiles (f_or_d ++ [pathSeparator] ++ titlefile) language files
+                runFromFiles (f_or_d ++ [pathSeparator] ++ titlefile) language (map (\f -> f_or_d ++ [pathSeparator] ++ f) files)
                 list <- runFromDirectory titlefile language files_or_dirs
                 return list
         else do list <- runFromDirectory titlefile language files_or_dirs
                 return $ [f_or_d] ++ list
 
+runFromFiles _ _ [] = return ()
 runFromFiles titlefile language files = do
     list <- prepareRenameList titlefile language files
     if length list > 0
